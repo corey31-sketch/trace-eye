@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { Equipment, FlowLink, TimeRange, ProductFilter } from "@/types/manufacturing";
+import { Equipment, FlowLink, TimeRange, ProductFilter, ParallelEquipmentGroup } from "@/types/manufacturing";
 import { EquipmentCard } from "./EquipmentCard";
-import { FlowVisualization } from "./FlowVisualization";
+import { ParallelEquipmentGroupCard } from "./ParallelEquipmentGroupCard";
+import { EnhancedFlowVisualization } from "./EnhancedFlowVisualization";
+import { EquipmentDetailView } from "./EquipmentDetailView";
 import { TimeRangeSelector } from "./TimeRangeSelector";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +16,7 @@ const mockEquipment: Equipment[] = [
   {
     id: "press-01",
     name: "Press 01",
+    stationType: "press",
     x: 100,
     y: 200,
     status: "excellent",
@@ -22,24 +25,102 @@ const mockEquipment: Equipment[] = [
       totalUnits: 1240,
       avgCycleTime: 45.2,
       anomalyScore: 12
-    }
+    },
+    parameters: [
+      {
+        id: "pressure",
+        name: "Hydraulic Pressure",
+        unit: "PSI",
+        currentValue: 2150,
+        targetValue: 2200,
+        upperLimit: 2400,
+        lowerLimit: 2000,
+        upperControlLimit: 2350,
+        lowerControlLimit: 2050,
+        trend: "stable",
+        status: "normal"
+      },
+      {
+        id: "temperature",
+        name: "Oil Temperature",
+        unit: "°F",
+        currentValue: 185,
+        targetValue: 180,
+        upperLimit: 200,
+        lowerLimit: 160,
+        upperControlLimit: 195,
+        lowerControlLimit: 165,
+        trend: "increasing",
+        status: "warning"
+      }
+    ]
   },
   {
-    id: "weld-station",
-    name: "Weld Station",
+    id: "weld-station-01",
+    name: "Weld Station 01",
+    stationType: "weld",
     x: 400,
-    y: 200,
+    y: 180,
     status: "good",
+    isParallel: true,
+    parallelGroupId: "weld-group-01",
     kpis: {
       fpy: 96.8,
-      totalUnits: 1180,
+      totalUnits: 590,
       avgCycleTime: 62.8,
       anomalyScore: 28
-    }
+    },
+    parameters: [
+      {
+        id: "current",
+        name: "Welding Current",
+        unit: "A",
+        currentValue: 185,
+        targetValue: 190,
+        upperLimit: 210,
+        lowerLimit: 170,
+        upperControlLimit: 205,
+        lowerControlLimit: 175,
+        trend: "stable",
+        status: "normal"
+      }
+    ]
+  },
+  {
+    id: "weld-station-02",
+    name: "Weld Station 02",
+    stationType: "weld",
+    x: 400,
+    y: 220,
+    status: "excellent",
+    isParallel: true,
+    parallelGroupId: "weld-group-01",
+    kpis: {
+      fpy: 97.2,
+      totalUnits: 590,
+      avgCycleTime: 60.1,
+      anomalyScore: 15
+    },
+    parameters: [
+      {
+        id: "current",
+        name: "Welding Current",
+        unit: "A",
+        currentValue: 192,
+        targetValue: 190,
+        upperLimit: 210,
+        lowerLimit: 170,
+        upperControlLimit: 205,
+        lowerControlLimit: 175,
+        trend: "stable",
+        status: "normal"
+      }
+    ]
   },
   {
     id: "assembly-line",
     name: "Assembly Line",
+    stationType: "assembly",
     x: 700,
     y: 200,
     status: "warning",
@@ -48,11 +129,27 @@ const mockEquipment: Equipment[] = [
       totalUnits: 1150,
       avgCycleTime: 78.5,
       anomalyScore: 45
-    }
+    },
+    parameters: [
+      {
+        id: "speed",
+        name: "Line Speed",
+        unit: "ft/min",
+        currentValue: 12.5,
+        targetValue: 15.0,
+        upperLimit: 18.0,
+        lowerLimit: 10.0,
+        upperControlLimit: 17.0,
+        lowerControlLimit: 11.0,
+        trend: "decreasing",
+        status: "warning"
+      }
+    ]
   },
   {
     id: "quality-check",
     name: "Quality Check",
+    stationType: "inspection",
     x: 1000,
     y: 200,
     status: "excellent",
@@ -61,7 +158,22 @@ const mockEquipment: Equipment[] = [
       totalUnits: 1140,
       avgCycleTime: 35.0,
       anomalyScore: 8
-    }
+    },
+    parameters: [
+      {
+        id: "accuracy",
+        name: "Measurement Accuracy",
+        unit: "μm",
+        currentValue: 2.1,
+        targetValue: 2.0,
+        upperLimit: 5.0,
+        lowerLimit: 0.5,
+        upperControlLimit: 4.0,
+        lowerControlLimit: 1.0,
+        trend: "stable",
+        status: "normal"
+      }
+    ]
   }
 ];
 
@@ -69,14 +181,15 @@ const mockFlowLinks: FlowLink[] = [
   {
     id: "flow-1",
     sourceId: "press-01",
-    targetId: "weld-station",
+    targetId: "weld-group-01", // Points to parallel group
     throughputCount: 85,
     avgTransitionTime: 120,
-    status: "high"
+    status: "high",
+    isParallelFlow: true
   },
   {
     id: "flow-2",
-    sourceId: "weld-station",
+    sourceId: "weld-group-01",
     targetId: "assembly-line",
     throughputCount: 78,
     avgTransitionTime: 180,
@@ -92,8 +205,25 @@ const mockFlowLinks: FlowLink[] = [
   }
 ];
 
+// Create parallel equipment groups
+const mockParallelGroups: ParallelEquipmentGroup[] = [
+  {
+    id: "weld-group-01",
+    stationType: "weld",
+    name: "Welding Station Group",
+    equipment: mockEquipment.filter(eq => eq.parallelGroupId === "weld-group-01"),
+    combinedKpis: {
+      totalFpy: 97.0, // Average of parallel units
+      totalUnits: 1180, // Sum of all units
+      avgCycleTime: 61.5, // Average cycle time
+      maxAnomalyScore: 28 // Maximum anomaly score
+    }
+  }
+];
+
 export const ManufacturingDashboard = () => {
   const [equipment, setEquipment] = useState<Equipment[]>(mockEquipment);
+  const [parallelGroups, setParallelGroups] = useState<ParallelEquipmentGroup[]>(mockParallelGroups);
   const [flowLinks, setFlowLinks] = useState<FlowLink[]>(mockFlowLinks);
   const [timeRange, setTimeRange] = useState<TimeRange>({ type: 'realtime' });
   const [productFilter, setProductFilter] = useState<ProductFilter>();
@@ -127,8 +257,13 @@ export const ManufacturingDashboard = () => {
 
   const handleEquipmentClick = (equipment: Equipment) => {
     setSelectedEquipment(equipment);
-    // In a real app, this would navigate to detailed SPC view
-    console.log('Opening detailed view for:', equipment.name);
+  };
+
+  const handleGroupClick = (group: ParallelEquipmentGroup) => {
+    // For groups, show the first equipment's detail (could be enhanced to show group view)
+    if (group.equipment.length > 0) {
+      setSelectedEquipment(group.equipment[0]);
+    }
   };
 
   // Calculate overall metrics
@@ -246,9 +381,9 @@ export const ManufacturingDashboard = () => {
 
       {/* Main Dashboard */}
       <div className="relative">
-        {/* Equipment Cards */}
+        {/* Individual Equipment Cards */}
         <div className="absolute inset-0" style={{ zIndex: 2 }}>
-          {equipment.map(eq => (
+          {equipment.filter(eq => !eq.isParallel).map(eq => (
             <div
               key={eq.id}
               className="absolute transform -translate-x-1/2 -translate-y-1/2"
@@ -263,34 +398,45 @@ export const ManufacturingDashboard = () => {
               />
             </div>
           ))}
+          
+          {/* Parallel Equipment Group Cards */}
+          {parallelGroups.map(group => {
+            const avgX = group.equipment.reduce((sum, eq) => sum + eq.x, 0) / group.equipment.length;
+            const avgY = group.equipment.reduce((sum, eq) => sum + eq.y, 0) / group.equipment.length;
+            
+            return (
+              <div
+                key={group.id}
+                className="absolute transform -translate-x-1/2 -translate-y-1/2"
+                style={{
+                  left: avgX,
+                  top: avgY,
+                }}
+              >
+                <ParallelEquipmentGroupCard
+                  group={group}
+                  onClick={() => handleGroupClick(group)}
+                />
+              </div>
+            );
+          })}
         </div>
 
-        {/* Flow Visualization */}
-        <FlowVisualization
+        {/* Enhanced Flow Visualization */}
+        <EnhancedFlowVisualization
           equipment={equipment}
+          parallelGroups={parallelGroups}
           links={flowLinks}
           className="min-h-[600px]"
         />
       </div>
 
-      {/* Equipment Details Modal/Sidebar would go here */}
-      {selectedEquipment && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-96 max-h-[80vh] overflow-y-auto">
-            <CardHeader>
-              <CardTitle>{selectedEquipment.name} - Detailed Analysis</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-4">
-                SPC-style visualizations and detailed analytics would be displayed here.
-              </p>
-              <Button onClick={() => setSelectedEquipment(null)}>
-                Close
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Equipment Details Modal */}
+      <EquipmentDetailView
+        equipment={selectedEquipment}
+        isOpen={!!selectedEquipment}
+        onClose={() => setSelectedEquipment(null)}
+      />
     </div>
   );
 };
