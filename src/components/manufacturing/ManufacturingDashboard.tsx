@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Equipment, FlowLink, TimeRange, ProductFilter, ParallelEquipmentGroup } from "@/types/manufacturing";
 import { EquipmentCard } from "./EquipmentCard";
 import { ParallelEquipmentGroupCard } from "./ParallelEquipmentGroupCard";
 import { EnhancedFlowVisualization } from "./EnhancedFlowVisualization";
-import { EquipmentDetailView } from "./EquipmentDetailView";
 import { TimeRangeSelector } from "./TimeRangeSelector";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -222,12 +222,12 @@ const mockParallelGroups: ParallelEquipmentGroup[] = [
 ];
 
 export const ManufacturingDashboard = () => {
+  const navigate = useNavigate();
   const [equipment, setEquipment] = useState<Equipment[]>(mockEquipment);
   const [parallelGroups, setParallelGroups] = useState<ParallelEquipmentGroup[]>(mockParallelGroups);
   const [flowLinks, setFlowLinks] = useState<FlowLink[]>(mockFlowLinks);
   const [timeRange, setTimeRange] = useState<TimeRange>({ type: 'realtime' });
   const [productFilter, setProductFilter] = useState<ProductFilter>();
-  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Simulate real-time data updates
@@ -256,13 +256,13 @@ export const ManufacturingDashboard = () => {
   };
 
   const handleEquipmentClick = (equipment: Equipment) => {
-    setSelectedEquipment(equipment);
+    navigate(`/equipment/${equipment.id}`);
   };
 
   const handleGroupClick = (group: ParallelEquipmentGroup) => {
-    // For groups, show the first equipment's detail (could be enhanced to show group view)
+    // For groups, navigate to the first equipment's detail
     if (group.equipment.length > 0) {
-      setSelectedEquipment(group.equipment[0]);
+      navigate(`/equipment/${group.equipment[0].id}`);
     }
   };
 
@@ -431,12 +431,6 @@ export const ManufacturingDashboard = () => {
         />
       </div>
 
-      {/* Equipment Details Modal */}
-      <EquipmentDetailView
-        equipment={selectedEquipment}
-        isOpen={!!selectedEquipment}
-        onClose={() => setSelectedEquipment(null)}
-      />
     </div>
   );
 };
