@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Equipment, FlowLink, TimeRange, ProductFilter, ParallelEquipmentGroup } from "@/types/manufacturing";
 import { EquipmentCard } from "./EquipmentCard";
@@ -10,249 +10,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BarChart3, Settings, RefreshCw, TrendingUp, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// Mock data for demonstration
-const mockEquipment: Equipment[] = [
-  {
-    id: "press-01",
-    name: "Press 01",
-    stationType: "press",
-    x: 100,
-    y: 200,
-    status: "excellent",
-    kpis: {
-      fpy: 98.5,
-      totalUnits: 1240,
-      avgCycleTime: 45.2,
-      anomalyScore: 12
-    },
-    parameters: [
-      {
-        id: "pressure",
-        name: "Hydraulic Pressure",
-        unit: "PSI",
-        currentValue: 2150,
-        targetValue: 2200,
-        upperLimit: 2400,
-        lowerLimit: 2000,
-        upperControlLimit: 2350,
-        lowerControlLimit: 2050,
-        trend: "stable",
-        status: "normal"
-      },
-      {
-        id: "temperature",
-        name: "Oil Temperature",
-        unit: "°F",
-        currentValue: 185,
-        targetValue: 180,
-        upperLimit: 200,
-        lowerLimit: 160,
-        upperControlLimit: 195,
-        lowerControlLimit: 165,
-        trend: "increasing",
-        status: "warning"
-      }
-    ]
-  },
-  {
-    id: "weld-station-01",
-    name: "Weld Station 01",
-    stationType: "weld",
-    x: 400,
-    y: 180,
-    status: "good",
-    isParallel: true,
-    parallelGroupId: "weld-group-01",
-    kpis: {
-      fpy: 96.8,
-      totalUnits: 590,
-      avgCycleTime: 62.8,
-      anomalyScore: 28
-    },
-    parameters: [
-      {
-        id: "current",
-        name: "Welding Current",
-        unit: "A",
-        currentValue: 185,
-        targetValue: 190,
-        upperLimit: 210,
-        lowerLimit: 170,
-        upperControlLimit: 205,
-        lowerControlLimit: 175,
-        trend: "stable",
-        status: "normal"
-      }
-    ]
-  },
-  {
-    id: "weld-station-02",
-    name: "Weld Station 02",
-    stationType: "weld",
-    x: 400,
-    y: 220,
-    status: "excellent",
-    isParallel: true,
-    parallelGroupId: "weld-group-01",
-    kpis: {
-      fpy: 97.2,
-      totalUnits: 590,
-      avgCycleTime: 60.1,
-      anomalyScore: 15
-    },
-    parameters: [
-      {
-        id: "current",
-        name: "Welding Current",
-        unit: "A",
-        currentValue: 192,
-        targetValue: 190,
-        upperLimit: 210,
-        lowerLimit: 170,
-        upperControlLimit: 205,
-        lowerControlLimit: 175,
-        trend: "stable",
-        status: "normal"
-      }
-    ]
-  },
-  {
-    id: "assembly-line",
-    name: "Assembly Line",
-    stationType: "assembly",
-    x: 700,
-    y: 200,
-    status: "warning",
-    kpis: {
-      fpy: 94.2,
-      totalUnits: 1150,
-      avgCycleTime: 78.5,
-      anomalyScore: 45
-    },
-    parameters: [
-      {
-        id: "speed",
-        name: "Line Speed",
-        unit: "ft/min",
-        currentValue: 12.5,
-        targetValue: 15.0,
-        upperLimit: 18.0,
-        lowerLimit: 10.0,
-        upperControlLimit: 17.0,
-        lowerControlLimit: 11.0,
-        trend: "decreasing",
-        status: "warning"
-      }
-    ]
-  },
-  {
-    id: "quality-check",
-    name: "Quality Check",
-    stationType: "inspection",
-    x: 1000,
-    y: 200,
-    status: "excellent",
-    kpis: {
-      fpy: 99.1,
-      totalUnits: 1140,
-      avgCycleTime: 35.0,
-      anomalyScore: 8
-    },
-    parameters: [
-      {
-        id: "accuracy",
-        name: "Measurement Accuracy",
-        unit: "μm",
-        currentValue: 2.1,
-        targetValue: 2.0,
-        upperLimit: 5.0,
-        lowerLimit: 0.5,
-        upperControlLimit: 4.0,
-        lowerControlLimit: 1.0,
-        trend: "stable",
-        status: "normal"
-      }
-    ]
-  }
-];
-
-const mockFlowLinks: FlowLink[] = [
-  {
-    id: "flow-1",
-    sourceId: "press-01",
-    targetId: "weld-group-01", // Points to parallel group
-    throughputCount: 85,
-    avgTransitionTime: 120,
-    status: "high",
-    isParallelFlow: true
-  },
-  {
-    id: "flow-2",
-    sourceId: "weld-group-01",
-    targetId: "assembly-line",
-    throughputCount: 78,
-    avgTransitionTime: 180,
-    status: "medium"
-  },
-  {
-    id: "flow-3",
-    sourceId: "assembly-line",
-    targetId: "quality-check",
-    throughputCount: 72,
-    avgTransitionTime: 90,
-    status: "medium"
-  }
-];
-
-// Create parallel equipment groups
-const mockParallelGroups: ParallelEquipmentGroup[] = [
-  {
-    id: "weld-group-01",
-    stationType: "weld",
-    name: "Welding Station Group",
-    equipment: mockEquipment.filter(eq => eq.parallelGroupId === "weld-group-01"),
-    combinedKpis: {
-      totalFpy: 97.0, // Average of parallel units
-      totalUnits: 1180, // Sum of all units
-      avgCycleTime: 61.5, // Average cycle time
-      maxAnomalyScore: 28 // Maximum anomaly score
-    }
-  }
-];
+import { mockEquipment, mockFlowLinks, mockParallelGroups, calculateOverallMetrics } from "@/data/mockManufacturingData";
 
 export const ManufacturingDashboard = () => {
   const navigate = useNavigate();
-  const [equipment, setEquipment] = useState<Equipment[]>(mockEquipment);
-  const [parallelGroups, setParallelGroups] = useState<ParallelEquipmentGroup[]>(mockParallelGroups);
-  const [flowLinks, setFlowLinks] = useState<FlowLink[]>(mockFlowLinks);
+  // In FastHTML, this data would come from server-side rendering
   const [timeRange, setTimeRange] = useState<TimeRange>({ type: 'realtime' });
   const [productFilter, setProductFilter] = useState<ProductFilter>();
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Simplified - no client-side state updates or intervals
+  // In FastHTML, data refreshes would be handled with HTMX polling or websockets
+  const equipment = mockEquipment;
+  const parallelGroups = mockParallelGroups;
+  const flowLinks = mockFlowLinks;
 
-  // Simulate real-time data updates
-  useEffect(() => {
-    if (timeRange.type !== 'realtime') return;
-
-    const interval = setInterval(() => {
-      setEquipment(prev => prev.map(eq => ({
-        ...eq,
-        kpis: {
-          ...eq.kpis,
-          totalUnits: eq.kpis.totalUnits + Math.floor(Math.random() * 5),
-          anomalyScore: Math.max(0, Math.min(100, eq.kpis.anomalyScore + (Math.random() - 0.5) * 10))
-        }
-      })));
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [timeRange.type]);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsRefreshing(false);
+  const handleRefresh = () => {
+    // In FastHTML: window.location.reload() or HTMX hx-get
+    window.location.reload();
   };
 
   const handleEquipmentClick = (equipment: Equipment) => {
@@ -266,13 +40,8 @@ export const ManufacturingDashboard = () => {
     }
   };
 
-  // Calculate overall metrics
-  const overallMetrics = {
-    avgFPY: equipment.reduce((sum, eq) => sum + eq.kpis.fpy, 0) / equipment.length,
-    totalUnits: equipment.reduce((sum, eq) => sum + eq.kpis.totalUnits, 0),
-    totalThroughput: flowLinks.reduce((sum, link) => sum + link.throughputCount, 0),
-    criticalAlerts: equipment.filter(eq => eq.status === 'critical' || eq.status === 'warning').length
-  };
+  // Calculate overall metrics - in FastHTML this would be done server-side
+  const overallMetrics = calculateOverallMetrics(equipment, flowLinks);
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -292,9 +61,8 @@ export const ManufacturingDashboard = () => {
               variant="outline" 
               size="sm"
               onClick={handleRefresh}
-              disabled={isRefreshing}
             >
-              <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
+              <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
             <Button variant="outline" size="sm">

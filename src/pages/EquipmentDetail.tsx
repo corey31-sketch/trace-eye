@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Equipment, SPCChart, ProcessParameter } from "@/types/manufacturing";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,6 +9,7 @@ import { ParameterCard } from "@/components/manufacturing/ParameterCard";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { TrendingUp, Clock, Activity, AlertTriangle, BarChart3, Download, Settings, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { mockEquipment } from "@/data/mockManufacturingData";
 
 // Mock data generator functions
 const generateMockSPCData = (parameterId: string, equipmentId: string): SPCChart => {
@@ -57,63 +57,28 @@ const generateTrendData = () => {
   }));
 };
 
-// Mock equipment data - in real app, fetch from API
-const getMockEquipment = (id: string): Equipment => ({
-  id,
-  name: `Equipment ${id}`,
-  stationType: 'assembly',
-  status: 'excellent',
-  x: 100,
-  y: 100,
-  kpis: {
-    fpy: 98.5,
-    totalUnits: 1234,
-    avgCycleTime: 47.2,
-    anomalyScore: 12
-  },
-  parameters: [
-    {
-      id: 'param1',
-      name: 'Temperature',
-      currentValue: 185.3,
-      unit: '°C',
-      targetValue: 185.0,
-      upperLimit: 190.0,
-      lowerLimit: 180.0,
-      upperControlLimit: 188.0,
-      lowerControlLimit: 182.0,
-      status: 'normal',
-      trend: 'stable'
-    },
-    {
-      id: 'param2',
-      name: 'Pressure',
-      currentValue: 52.1,
-      unit: 'PSI',
-      targetValue: 50.0,
-      upperLimit: 55.0,
-      lowerLimit: 45.0,
-      upperControlLimit: 53.0,
-      lowerControlLimit: 47.0,
-      status: 'warning',
-      trend: 'increasing'
-    }
-  ]
-});
+// In FastHTML, equipment data would be fetched server-side and passed to template
+const getMockEquipment = (id: string): Equipment => {
+  // Use data from centralized mock data file
+  const found = mockEquipment.find(eq => eq.id === id);
+  return found || mockEquipment[0];
+};
 
 export default function EquipmentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("overview");
+  // Removed useState - in FastHTML, active tab would be a URL parameter
+  // Example: /equipment/press-01?tab=overview
 
   if (!id) {
     return <div>Equipment not found</div>;
   }
 
+  // In FastHTML, all this data would be generated server-side
   const equipment = getMockEquipment(id);
-  const spcData = equipment.parameters.map(param => 
+  const spcData = equipment.parameters?.map(param => 
     generateMockSPCData(param.id, equipment.id)
-  );
+  ) || [];
   const trendData = generateTrendData();
 
   const exportData = () => {
@@ -159,8 +124,8 @@ export default function EquipmentDetail() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        {/* Tabs - in FastHTML, use defaultValue or URL parameters for active tab */}
+        <Tabs defaultValue="overview" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="parameters">Parameters</TabsTrigger>
