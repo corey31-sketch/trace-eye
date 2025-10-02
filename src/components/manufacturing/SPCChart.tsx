@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SPCChart, SPCDataPoint } from "@/types/manufacturing";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Scatter, ScatterChart } from "recharts";
+import ReactECharts from "echarts-for-react";
 import { AlertTriangle, TrendingUp, TrendingDown, Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,85 @@ export const SPCChartComponent = ({ spcData, height = 300, className }: SPCChart
     isOutOfControl: point.isOutOfControl,
     violationType: point.violationType
   }));
+
+  const chartOption = {
+    backgroundColor: 'transparent',
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      top: '10%',
+      containLabel: true
+    },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'hsl(var(--card))',
+      borderColor: 'hsl(var(--border))',
+      textStyle: {
+        color: 'hsl(var(--foreground))'
+      }
+    },
+    xAxis: {
+      type: 'category',
+      data: chartData.map(d => d.time),
+      axisLine: { lineStyle: { color: 'hsl(var(--muted-foreground))' } },
+      axisLabel: { color: 'hsl(var(--muted-foreground))', fontSize: 12 }
+    },
+    yAxis: {
+      type: 'value',
+      axisLine: { lineStyle: { color: 'hsl(var(--muted-foreground))' } },
+      axisLabel: { color: 'hsl(var(--muted-foreground))', fontSize: 12 },
+      splitLine: { lineStyle: { color: 'hsl(var(--border))', type: 'dashed' } }
+    },
+    series: [
+      {
+        name: 'Value',
+        type: 'line',
+        data: chartData.map(d => d.value),
+        itemStyle: { color: 'hsl(var(--primary))' },
+        lineStyle: { width: 2 },
+        symbol: 'circle',
+        symbolSize: 6,
+        markLine: {
+          silent: true,
+          symbol: 'none',
+          label: { position: 'insideEndTop' },
+          data: [
+            {
+              name: 'UCL',
+              yAxis: spcData.controlLimits.upperControl,
+              lineStyle: { color: 'hsl(var(--status-critical))', type: 'dashed', width: 2 },
+              label: { formatter: 'UCL', color: 'hsl(var(--status-critical))' }
+            },
+            {
+              name: 'LCL',
+              yAxis: spcData.controlLimits.lowerControl,
+              lineStyle: { color: 'hsl(var(--status-critical))', type: 'dashed', width: 2 },
+              label: { formatter: 'LCL', color: 'hsl(var(--status-critical))' }
+            },
+            {
+              name: 'Target',
+              yAxis: spcData.controlLimits.target,
+              lineStyle: { color: 'hsl(var(--primary))', type: 'dashed', width: 1 },
+              label: { formatter: 'Target', color: 'hsl(var(--primary))' }
+            },
+            {
+              name: 'USL',
+              yAxis: spcData.controlLimits.upperSpec,
+              lineStyle: { color: 'hsl(var(--status-warning))', type: 'solid', width: 2 },
+              label: { formatter: 'USL', color: 'hsl(var(--status-warning))' }
+            },
+            {
+              name: 'LSL',
+              yAxis: spcData.controlLimits.lowerSpec,
+              lineStyle: { color: 'hsl(var(--status-warning))', type: 'solid', width: 2 },
+              label: { formatter: 'LSL', color: 'hsl(var(--status-warning))' }
+            }
+          ]
+        }
+      }
+    ]
+  };
 
   const getStatusColor = () => {
     const outOfControlPoints = spcData.dataPoints.filter(p => p.isOutOfControl).length;
@@ -100,71 +179,7 @@ export const SPCChartComponent = ({ spcData, height = 300, className }: SPCChart
 
           {/* SPC Chart */}
           <div style={{ height }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis 
-                  dataKey="time" 
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={12}
-                />
-                <YAxis 
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={12}
-                />
-                <Tooltip 
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '6px'
-                  }}
-                />
-                
-                {/* Control Limits */}
-                <ReferenceLine 
-                  y={spcData.controlLimits.upperControl} 
-                  stroke="hsl(var(--status-critical))" 
-                  strokeDasharray="5 5"
-                  label={{ value: "UCL", position: "insideTopRight" }}
-                />
-                <ReferenceLine 
-                  y={spcData.controlLimits.lowerControl} 
-                  stroke="hsl(var(--status-critical))" 
-                  strokeDasharray="5 5"
-                  label={{ value: "LCL", position: "insideBottomRight" }}
-                />
-                <ReferenceLine 
-                  y={spcData.controlLimits.target} 
-                  stroke="hsl(var(--primary))" 
-                  strokeDasharray="2 2"
-                  label={{ value: "Target", position: "insideTopRight" }}
-                />
-                
-                {/* Specification Limits */}
-                <ReferenceLine 
-                  y={spcData.controlLimits.upperSpec} 
-                  stroke="hsl(var(--status-warning))" 
-                  strokeWidth={2}
-                  label={{ value: "USL", position: "insideTopRight" }}
-                />
-                <ReferenceLine 
-                  y={spcData.controlLimits.lowerSpec} 
-                  stroke="hsl(var(--status-warning))" 
-                  strokeWidth={2}
-                  label={{ value: "LSL", position: "insideBottomRight" }}
-                />
-                
-                {/* Data Line */}
-                <Line 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="hsl(var(--primary))" 
-                  strokeWidth={2}
-                  dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 3 }}
-                  activeDot={{ r: 5, stroke: 'hsl(var(--primary))', strokeWidth: 2 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <ReactECharts option={chartOption} style={{ height: '100%' }} />
           </div>
 
           {/* Violations Summary */}

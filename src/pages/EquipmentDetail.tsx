@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SPCChartComponent } from "@/components/manufacturing/SPCChart";
 import { ParameterCard } from "@/components/manufacturing/ParameterCard";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
+import ReactECharts from "echarts-for-react";
 import { TrendingUp, Clock, Activity, AlertTriangle, BarChart3, Download, Settings, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mockEquipment } from "@/data/mockManufacturingData";
@@ -83,6 +83,101 @@ export default function EquipmentDetail() {
 
   const exportData = () => {
     console.log("Exporting data for", equipment.name);
+  };
+
+  // ECharts options for 24-hour performance trends
+  const performanceTrendsOption = {
+    backgroundColor: 'transparent',
+    grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'hsl(var(--card))',
+      borderColor: 'hsl(var(--border))',
+      textStyle: { color: 'hsl(var(--foreground))' }
+    },
+    xAxis: {
+      type: 'category',
+      data: trendData.map(d => d.hour),
+      axisLine: { lineStyle: { color: 'hsl(var(--muted-foreground))' } },
+      axisLabel: { color: 'hsl(var(--muted-foreground))', fontSize: 12 }
+    },
+    yAxis: {
+      type: 'value',
+      axisLine: { lineStyle: { color: 'hsl(var(--muted-foreground))' } },
+      axisLabel: { color: 'hsl(var(--muted-foreground))', fontSize: 12 },
+      splitLine: { lineStyle: { color: 'hsl(var(--border))', type: 'dashed' } }
+    },
+    series: [{
+      name: 'FPY (%)',
+      type: 'line',
+      data: trendData.map(d => d.fpy),
+      areaStyle: { color: 'hsl(var(--primary))', opacity: 0.3 },
+      itemStyle: { color: 'hsl(var(--primary))' },
+      lineStyle: { width: 2 },
+      smooth: true
+    }]
+  };
+
+  // ECharts options for cycle time trend
+  const cycleTimeTrendOption = {
+    backgroundColor: 'transparent',
+    grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'hsl(var(--card))',
+      borderColor: 'hsl(var(--border))',
+      textStyle: { color: 'hsl(var(--foreground))' }
+    },
+    xAxis: {
+      type: 'category',
+      data: trendData.map(d => d.hour),
+      axisLine: { lineStyle: { color: 'hsl(var(--muted-foreground))' } },
+      axisLabel: { color: 'hsl(var(--muted-foreground))', fontSize: 12 }
+    },
+    yAxis: {
+      type: 'value',
+      axisLine: { lineStyle: { color: 'hsl(var(--muted-foreground))' } },
+      axisLabel: { color: 'hsl(var(--muted-foreground))', fontSize: 12 },
+      splitLine: { lineStyle: { color: 'hsl(var(--border))', type: 'dashed' } }
+    },
+    series: [{
+      name: 'Cycle Time (s)',
+      type: 'line',
+      data: trendData.map(d => d.cycleTime),
+      itemStyle: { color: 'hsl(var(--status-good))' },
+      lineStyle: { width: 2 }
+    }]
+  };
+
+  // ECharts options for throughput trend
+  const throughputTrendOption = {
+    backgroundColor: 'transparent',
+    grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'hsl(var(--card))',
+      borderColor: 'hsl(var(--border))',
+      textStyle: { color: 'hsl(var(--foreground))' }
+    },
+    xAxis: {
+      type: 'category',
+      data: trendData.map(d => d.hour),
+      axisLine: { lineStyle: { color: 'hsl(var(--muted-foreground))' } },
+      axisLabel: { color: 'hsl(var(--muted-foreground))', fontSize: 12 }
+    },
+    yAxis: {
+      type: 'value',
+      axisLine: { lineStyle: { color: 'hsl(var(--muted-foreground))' } },
+      axisLabel: { color: 'hsl(var(--muted-foreground))', fontSize: 12 },
+      splitLine: { lineStyle: { color: 'hsl(var(--border))', type: 'dashed' } }
+    },
+    series: [{
+      name: 'Throughput (units/h)',
+      type: 'line',
+      data: trendData.map(d => d.throughput),
+      itemStyle: { color: 'hsl(var(--primary))' },
+      lineStyle: { width: 2 }
+    }]
   };
 
   return (
@@ -212,28 +307,7 @@ export default function EquipmentDetail() {
               </CardHeader>
               <CardContent>
                 <div style={{ height: 300 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={trendData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="hour" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--card))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '6px'
-                        }}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="fpy" 
-                        stroke="hsl(var(--primary))" 
-                        fill="hsl(var(--primary))" 
-                        fillOpacity={0.3} 
-                        name="FPY (%)"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  <ReactECharts option={performanceTrendsOption} style={{ height: '100%' }} />
                 </div>
               </CardContent>
             </Card>
@@ -262,21 +336,7 @@ export default function EquipmentDetail() {
                 </CardHeader>
                 <CardContent>
                   <div style={{ height: 200 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={trendData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="hour" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                        <Tooltip />
-                        <Line 
-                          type="monotone" 
-                          dataKey="cycleTime" 
-                          stroke="hsl(var(--status-good))" 
-                          strokeWidth={2}
-                          name="Cycle Time (s)"
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
+                    <ReactECharts option={cycleTimeTrendOption} style={{ height: '100%' }} />
                   </div>
                 </CardContent>
               </Card>
@@ -288,21 +348,7 @@ export default function EquipmentDetail() {
                 </CardHeader>
                 <CardContent>
                   <div style={{ height: 200 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={trendData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="hour" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                        <Tooltip />
-                        <Line 
-                          type="monotone" 
-                          dataKey="throughput" 
-                          stroke="hsl(var(--primary))" 
-                          strokeWidth={2}
-                          name="Throughput (units/h)"
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
+                    <ReactECharts option={throughputTrendOption} style={{ height: '100%' }} />
                   </div>
                 </CardContent>
               </Card>
