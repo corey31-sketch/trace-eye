@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { SPCChartComponent } from "@/components/manufacturing/SPCChart";
 import { ParameterCard } from "@/components/manufacturing/ParameterCard";
 import ReactECharts from "echarts-for-react";
-import { TrendingUp, Clock, Activity, AlertTriangle, BarChart3, Download, Settings, ArrowLeft } from "lucide-react";
+import { TrendingUp, Clock, Activity, AlertTriangle, BarChart3, Download, Settings, ArrowLeft, GitCompare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mockEquipment } from "@/data/mockManufacturingData";
+import { DateTimeRangeSelector } from "@/components/manufacturing/DateTimeRangeSelector";
 
 // Mock data generator functions
 const generateMockSPCData = (parameterId: string, equipmentId: string): SPCChart => {
@@ -219,6 +220,11 @@ export default function EquipmentDetail() {
           </div>
         </div>
 
+        {/* Date/Time Range Selector */}
+        <div className="flex justify-start">
+          <DateTimeRangeSelector />
+        </div>
+
         {/* Tabs - in FastHTML, use defaultValue or URL parameters for active tab */}
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
@@ -311,6 +317,18 @@ export default function EquipmentDetail() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Station Comparison Button */}
+            <div className="flex justify-center pt-4">
+              <Button 
+                size="lg" 
+                onClick={() => navigate('/comparison')}
+                className="gap-2"
+              >
+                <GitCompare className="h-5 w-5" />
+                Compare with Another Station
+              </Button>
+            </div>
           </TabsContent>
 
           <TabsContent value="parameters" className="space-y-6">
