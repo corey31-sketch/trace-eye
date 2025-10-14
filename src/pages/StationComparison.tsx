@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, TrendingUp, Clock, Activity, AlertTriangle } from "lucide-react";
 import { mockEquipment } from "@/data/mockManufacturingData";
 import ReactECharts from "echarts-for-react";
@@ -17,6 +18,25 @@ export default function StationComparison() {
 
   const station1 = mockEquipment.find(eq => eq.id === station1Id) || mockEquipment[0];
   const station2 = mockEquipment.find(eq => eq.id === station2Id) || mockEquipment[1];
+
+  // Parameter selection state
+  const allParameterIds = station1.parameters.map(p => p.id);
+  const [selectedParameters, setSelectedParameters] = useState<string[]>(allParameterIds);
+
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedParameters(checked ? allParameterIds : []);
+  };
+
+  const handleParameterToggle = (parameterId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedParameters(prev => [...prev, parameterId]);
+    } else {
+      setSelectedParameters(prev => prev.filter(id => id !== parameterId));
+    }
+  };
+
+  const isAllSelected = selectedParameters.length === allParameterIds.length;
+  const filteredParameters = station1.parameters.filter(p => selectedParameters.includes(p.id));
 
   // Generate comparison chart data
   const comparisonChartOption = {
@@ -345,42 +365,82 @@ export default function StationComparison() {
           </Card>
         </div>
 
-        {/* Parameter Comparison Table */}
-        <Card className="bg-gradient-card border-border/50">
-          <CardHeader>
-            <CardTitle>Parameter Comparison</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left p-3 text-sm font-medium text-muted-foreground">Parameter</th>
-                    <th className="text-left p-3 text-sm font-medium text-muted-foreground">{station1.name}</th>
-                    <th className="text-left p-3 text-sm font-medium text-muted-foreground">{station2.name}</th>
-                    <th className="text-left p-3 text-sm font-medium text-muted-foreground">Difference</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {station1.parameters.map((param, idx) => {
-                    const param2 = station2.parameters[idx];
-                    const diff = param2 ? ((param.currentValue - param2.currentValue) / param2.currentValue * 100).toFixed(1) : 0;
-                    return (
-                      <tr key={param.id} className="border-b border-border/50">
-                        <td className="p-3 text-sm">{param.name}</td>
-                        <td className="p-3 text-sm">{param.currentValue} {param.unit}</td>
-                        <td className="p-3 text-sm">{param2?.currentValue} {param2?.unit}</td>
-                        <td className="p-3 text-sm">
-                          <Badge variant="outline">{diff}%</Badge>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Parameter Selection and Comparison */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Parameter Selection */}
+          <Card className="bg-gradient-card border-border/50">
+            <CardHeader>
+              <CardTitle>Select Parameters</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center space-x-2 pb-2 border-b border-border">
+                <Checkbox
+                  id="select-all"
+                  checked={isAllSelected}
+                  onCheckedChange={handleSelectAll}
+                />
+                <label
+                  htmlFor="select-all"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  All Parameters
+                </label>
+              </div>
+              {station1.parameters.map(param => (
+                <div key={param.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={param.id}
+                    checked={selectedParameters.includes(param.id)}
+                    onCheckedChange={(checked) => handleParameterToggle(param.id, checked as boolean)}
+                  />
+                  <label
+                    htmlFor={param.id}
+                    className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    {param.name}
+                  </label>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Parameter Comparison Table */}
+          <Card className="bg-gradient-card border-border/50 lg:col-span-3">
+            <CardHeader>
+              <CardTitle>Parameter Comparison</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">Parameter</th>
+                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">{station1.name}</th>
+                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">{station2.name}</th>
+                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">Difference</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredParameters.map((param, idx) => {
+                      const param2 = station2.parameters.find(p => p.name === param.name);
+                      const diff = param2 ? ((param.currentValue - param2.currentValue) / param2.currentValue * 100).toFixed(1) : 0;
+                      return (
+                        <tr key={param.id} className="border-b border-border/50">
+                          <td className="p-3 text-sm">{param.name}</td>
+                          <td className="p-3 text-sm">{param.currentValue} {param.unit}</td>
+                          <td className="p-3 text-sm">{param2?.currentValue} {param2?.unit}</td>
+                          <td className="p-3 text-sm">
+                            <Badge variant="outline">{diff}%</Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
