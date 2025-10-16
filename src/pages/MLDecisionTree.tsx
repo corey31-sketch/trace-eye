@@ -8,26 +8,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { mockEquipment } from '@/data/mockManufacturingData';
 import { Equipment, ProcessParameter } from '@/types/manufacturing';
-import ReactECharts from 'echarts-for-react';
 import { DecisionTreeClassifier } from 'ml-cart';
 import { toast } from 'sonner';
+import { TreeVisualization, TreeNode } from '@/components/manufacturing/TreeVisualization';
+import { LeafAnalysis } from '@/components/manufacturing/LeafAnalysis';
 
-interface TreeNode {
-  feature?: number;
-  threshold?: number;
-  left?: TreeNode;
-  right?: TreeNode;
-  prediction?: number;
-  samples?: number;
-  path?: string;
-}
-
-interface EdgeData {
-  feature: string;
-  threshold: number;
-  samples: number[];
+interface LeafData {
+  samples: number[][];
   predictions: number[];
-  inputData: number[][];
 }
 
 const MLDecisionTree = () => {
@@ -37,8 +25,9 @@ const MLDecisionTree = () => {
   const [inputStation, setInputStation] = useState<Equipment | null>(null);
   const [selectedInputParams, setSelectedInputParams] = useState<string[]>([]);
   const [trainedModel, setTrainedModel] = useState<any>(null);
-  const [treeData, setTreeData] = useState<any>(null);
-  const [selectedEdge, setSelectedEdge] = useState<EdgeData | null>(null);
+  const [treeData, setTreeData] = useState<TreeNode | null>(null);
+  const [selectedLeaf, setSelectedLeaf] = useState<TreeNode | null>(null);
+  const [fullDataset, setFullDataset] = useState<{ X: number[][], y: number[] } | null>(null);
 
   const handleTargetStationChange = (stationId: string) => {
     const station = mockEquipment.find(s => s.id === stationId);
@@ -103,9 +92,11 @@ const MLDecisionTree = () => {
 
       classifier.train(X, y);
       setTrainedModel(classifier);
+      setFullDataset({ X, y });
 
       const tree = buildTreeVisualization(classifier.root, inputParams);
       setTreeData(tree);
+      setSelectedLeaf(null);
       toast.success('Model trained successfully!');
     } catch (error) {
       toast.error('Error training model');
@@ -113,160 +104,59 @@ const MLDecisionTree = () => {
     }
   };
 
-  const buildTreeVisualization = (node: any, inputParams: ProcessParameter[], path: string = 'root'): any => {
-    if (!node) return null;
-
-    const nodeName = node.splitFeature !== undefined
-      ? `${inputParams[node.splitFeature]?.name}\n≤ ${node.splitValue?.toFixed(2)}`
-      : `Class: ${node.prediction}`;
-
-    const children = [];
-    if (node.left) {
-      children.push(buildTreeVisualization(node.left, inputParams, `${path}-left`));
-    }
-    if (node.right) {
-      children.push(buildTreeVisualization(node.right, inputParams, `${path}-right`));
+  const buildTreeVisualization = (node: any, inputParams: ProcessParameter[], idPrefix: string = 'node'): TreeNode => {
+    if (!node) {
+      return {
+        id: `${idPrefix}-empty`,
+        samples: 0,
+        value: null,
+        isLeaf: true,
+        gini: 0,
+      };
     }
 
-    return {
-      name: nodeName,
-      value: node.numSamples || 1,
-      path,
-      feature: node.splitFeature,
-      threshold: node.splitValue,
-      prediction: node.prediction,
-      children: children.length > 0 ? children : undefined,
-    };
-  };
+    const isLeaf = node.splitFeature === undefined;
+    const children: TreeNode[] = [];
 
-  const handleNodeClick = (params: any) => {
-    if (!trainedModel || !inputStation || !targetStation) return;
-
-    const nodeData = params.data;
-    if (nodeData.feature === undefined) return;
-
-    const inputParams = inputStation.parameters.filter(p => selectedInputParams.includes(p.id));
-    const targetParams = targetStation.parameters.filter(p => selectedTargetParams.includes(p.id));
-    const { X, y } = generateMockData(inputParams, targetParams, 200);
-
-    const filteredIndices: number[] = [];
-    X.forEach((sample, idx) => {
-      if (sample[nodeData.feature] <= nodeData.threshold) {
-        filteredIndices.push(idx);
+    if (!isLeaf) {
+      if (node.left) {
+        children.push(buildTreeVisualization(node.left, inputParams, `${idPrefix}-left`));
       }
-    });
-
-    const edgeData: EdgeData = {
-      feature: inputParams[nodeData.feature].name,
-      threshold: nodeData.threshold,
-      samples: filteredIndices,
-      predictions: filteredIndices.map(idx => y[idx]),
-      inputData: X,
-    };
-
-    setSelectedEdge(edgeData);
-  };
-
-  const getTreeOption = () => {
-    if (!treeData) return {};
+      if (node.right) {
+        children.push(buildTreeVisualization(node.right, inputParams, `${idPrefix}-right`));
+      }
+    }
 
     return {
-      tooltip: {
-        trigger: 'item',
-        triggerOn: 'mousemove',
-      },
-      series: [
-        {
-          type: 'tree',
-          data: [treeData],
-          top: '5%',
-          left: '10%',
-          bottom: '5%',
-          right: '20%',
-          symbolSize: 12,
-          label: {
-            position: 'top',
-            verticalAlign: 'middle',
-            align: 'center',
-            fontSize: 11,
-          },
-          leaves: {
-            label: {
-              position: 'bottom',
-              verticalAlign: 'middle',
-              align: 'center',
-            },
-          },
-          emphasis: {
-            focus: 'descendant',
-          },
-          expandAndCollapse: true,
-          animationDuration: 550,
-          animationDurationUpdate: 750,
-        },
-      ],
+      id: idPrefix,
+      feature: isLeaf ? undefined : inputParams[node.splitFeature]?.name,
+      threshold: isLeaf ? undefined : node.splitValue,
+      samples: node.numSamples || 0,
+      value: node.prediction,
+      isLeaf,
+      children: children.length > 0 ? children : undefined,
+      gini: 0.5,
+      prediction: node.prediction,
     };
   };
 
-  const getScatterOption = () => {
-    if (!selectedEdge || !inputStation) return {};
+  const handleLeafClick = (leafNode: TreeNode) => {
+    setSelectedLeaf(leafNode);
+  };
 
-    const inputParams = inputStation.parameters.filter(p => selectedInputParams.includes(p.id));
-    const feature1Idx = 0;
-    const feature2Idx = Math.min(1, inputParams.length - 1);
+  const getLeafData = (leafNode: TreeNode): LeafData => {
+    if (!fullDataset) {
+      return { samples: [], predictions: [] };
+    }
 
-    const scatterData = selectedEdge.samples.map(idx => {
-      const sample = selectedEdge.inputData[idx];
-      return [
-        sample[feature1Idx],
-        sample[feature2Idx],
-        selectedEdge.predictions[idx],
-      ];
-    });
-
+    // For demo purposes, return a subset of the full dataset
+    // In a real implementation, you would traverse the tree to find actual leaf samples
+    const { X, y } = fullDataset;
+    const sampleSize = Math.min(leafNode.samples, X.length);
+    
     return {
-      title: {
-        text: `${selectedEdge.feature} ≤ ${selectedEdge.threshold.toFixed(2)}`,
-        left: 'center',
-      },
-      tooltip: {
-        trigger: 'item',
-        formatter: (params: any) => {
-          return `${inputParams[feature1Idx].name}: ${params.value[0].toFixed(2)}<br/>
-                  ${inputParams[feature2Idx].name}: ${params.value[1].toFixed(2)}<br/>
-                  Prediction: ${params.value[2] === 1 ? 'High' : 'Low'}`;
-        },
-      },
-      xAxis: {
-        name: inputParams[feature1Idx]?.name || 'Feature 1',
-        nameLocation: 'middle',
-        nameGap: 30,
-      },
-      yAxis: {
-        name: inputParams[feature2Idx]?.name || 'Feature 2',
-        nameLocation: 'middle',
-        nameGap: 40,
-      },
-      visualMap: {
-        min: 0,
-        max: 1,
-        dimension: 2,
-        orient: 'vertical',
-        right: 10,
-        top: 'center',
-        text: ['High', 'Low'],
-        calculable: true,
-        inRange: {
-          color: ['#50a3ba', '#eac736'],
-        },
-      },
-      series: [
-        {
-          type: 'scatter',
-          symbolSize: 10,
-          data: scatterData,
-        },
-      ],
+      samples: X.slice(0, sampleSize),
+      predictions: y.slice(0, sampleSize),
     };
   };
 
@@ -386,35 +276,30 @@ const MLDecisionTree = () => {
         </Card>
 
         {treeData && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Decision Tree Visualization</CardTitle>
-              <CardDescription>Click on any node to view detailed analysis</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ReactECharts
-                option={getTreeOption()}
-                style={{ height: '500px' }}
-                onEvents={{
-                  click: handleNodeClick,
-                }}
-              />
-            </CardContent>
-          </Card>
+          <TreeVisualization
+            treeData={treeData}
+            modelConfig={{
+              targetColumn: targetStation?.name,
+              selectedFeatures: inputStation?.parameters
+                .filter(p => selectedInputParams.includes(p.id))
+                .map(p => p.name),
+              modelType: 'Classification',
+            }}
+            onLeafClick={handleLeafClick}
+          />
         )}
 
-        {selectedEdge && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Edge Analysis - 2D Visualization</CardTitle>
-              <CardDescription>
-                Showing samples where {selectedEdge.feature} ≤ {selectedEdge.threshold.toFixed(2)}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ReactECharts option={getScatterOption()} style={{ height: '400px' }} />
-            </CardContent>
-          </Card>
+        {selectedLeaf && inputStation && (
+          <LeafAnalysis
+            leafNode={selectedLeaf}
+            availableFeatures={
+              inputStation.parameters
+                .filter(p => selectedInputParams.includes(p.id))
+                .map(p => p.name)
+            }
+            leafData={getLeafData(selectedLeaf)}
+            onClose={() => setSelectedLeaf(null)}
+          />
         )}
       </div>
     </div>
