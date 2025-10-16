@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import EquipmentDetail from "./pages/EquipmentDetail";
 import StationComparison from "./pages/StationComparison";
+import MLDecisionTree from "./pages/MLDecisionTree";
 import NotFound from "./pages/NotFound";
 
 // Simplified App structure for FastHTML compatibility
@@ -17,6 +18,7 @@ const App = () => (
         <Route path="/" element={<Index />} />
         <Route path="/equipment/:id" element={<EquipmentDetail />} />
         <Route path="/comparison" element={<StationComparison />} />
+        <Route path="/ml-decision-tree" element={<MLDecisionTree />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

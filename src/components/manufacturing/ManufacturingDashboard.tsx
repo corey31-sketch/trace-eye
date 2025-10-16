@@ -8,7 +8,7 @@ import { TimeRangeSelector } from "./TimeRangeSelector";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, Settings, RefreshCw, TrendingUp, AlertTriangle } from "lucide-react";
+import { BarChart3, Settings, RefreshCw, TrendingUp, AlertTriangle, GitBranch } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mockEquipment, mockFlowLinks, mockParallelGroups, calculateOverallMetrics } from "@/data/mockManufacturingData";
 
@@ -64,6 +64,14 @@ export const ManufacturingDashboard = () => {
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigate('/ml-decision-tree')}
+            >
+              <GitBranch className="h-4 w-4 mr-2" />
+              ML Analysis
             </Button>
             <Button variant="outline" size="sm">
               <Settings className="h-4 w-4 mr-2" />
