@@ -3,12 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Equipment, FlowLink, TimeRange, ProductFilter, ParallelEquipmentGroup } from "@/types/manufacturing";
 import { EquipmentCard } from "./EquipmentCard";
 import { ParallelEquipmentGroupCard } from "./ParallelEquipmentGroupCard";
-import { EnhancedFlowVisualization } from "./EnhancedFlowVisualization";
 import { TimeRangeSelector } from "./TimeRangeSelector";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, Settings, RefreshCw, TrendingUp, AlertTriangle, GitBranch } from "lucide-react";
+import { BarChart3, Settings, RefreshCw, TrendingUp, AlertTriangle, GitBranch, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mockEquipment, mockFlowLinks, mockParallelGroups, calculateOverallMetrics } from "@/data/mockManufacturingData";
 
@@ -155,56 +154,40 @@ export const ManufacturingDashboard = () => {
         </Card>
       </div>
 
-      {/* Main Dashboard */}
-      <div className="relative">
-        {/* Individual Equipment Cards */}
-        <div className="absolute inset-0" style={{ zIndex: 2 }}>
-          {equipment.filter(eq => !eq.isParallel).map(eq => (
-            <div
-              key={eq.id}
-              className="absolute transform -translate-x-1/2 -translate-y-1/2"
-              style={{
-                left: eq.x,
-                top: eq.y,
-              }}
-            >
-              <EquipmentCard
-                equipment={eq}
-                onClick={() => handleEquipmentClick(eq)}
-              />
-            </div>
-          ))}
-          
-          {/* Parallel Equipment Group Cards */}
-          {parallelGroups.map(group => {
-            const avgX = group.equipment.reduce((sum, eq) => sum + eq.x, 0) / group.equipment.length;
-            const avgY = group.equipment.reduce((sum, eq) => sum + eq.y, 0) / group.equipment.length;
-            
-            return (
-              <div
-                key={group.id}
-                className="absolute transform -translate-x-1/2 -translate-y-1/2"
-                style={{
-                  left: avgX,
-                  top: avgY,
-                }}
-              >
-                <ParallelEquipmentGroupCard
-                  group={group}
-                  onClick={() => handleGroupClick(group)}
-                />
-              </div>
-            );
-          })}
-        </div>
+      {/* Main Dashboard - Simple horizontal flow with arrows */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-4">
+        {(() => {
+          // Build ordered list: non-parallel equipment and groups in x-order
+          const standaloneEquipment = equipment.filter(eq => !eq.isParallel);
+          const items: { type: 'equipment' | 'group'; data: any; x: number }[] = [
+            ...standaloneEquipment.map(eq => ({ type: 'equipment' as const, data: eq, x: eq.x })),
+            ...parallelGroups.map(group => ({
+              type: 'group' as const,
+              data: group,
+              x: group.equipment.reduce((sum, eq) => sum + eq.x, 0) / group.equipment.length,
+            })),
+          ];
+          items.sort((a, b) => a.x - b.x);
 
-        {/* Enhanced Flow Visualization */}
-        <EnhancedFlowVisualization
-          equipment={equipment}
-          parallelGroups={parallelGroups}
-          links={flowLinks}
-          className="min-h-[600px]"
-        />
+          return items.map((item, index) => (
+            <div key={item.type === 'equipment' ? item.data.id : item.data.id} className="flex items-center gap-2">
+              {item.type === 'equipment' ? (
+                <EquipmentCard
+                  equipment={item.data}
+                  onClick={() => handleEquipmentClick(item.data)}
+                />
+              ) : (
+                <ParallelEquipmentGroupCard
+                  group={item.data}
+                  onClick={() => handleGroupClick(item.data)}
+                />
+              )}
+              {index < items.length - 1 && (
+                <ArrowRight className="h-8 w-8 text-muted-foreground flex-shrink-0" />
+              )}
+            </div>
+          ));
+        })()}
       </div>
 
     </div>
