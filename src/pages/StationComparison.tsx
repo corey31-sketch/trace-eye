@@ -5,148 +5,87 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, TrendingUp, Clock, Activity, AlertTriangle } from "lucide-react";
-import { mockEquipment } from "@/data/mockManufacturingData";
+import { ArrowLeft, Gauge, Activity, AlertTriangle } from "lucide-react";
+import { mockStationStats, stationDisplayNames, lineConfig, getStatusColor } from "@/data/mockManufacturingData";
 import ReactECharts from "echarts-for-react";
 import { cn } from "@/lib/utils";
 import { DateTimeRangeSelector } from "@/components/manufacturing/DateTimeRangeSelector";
 
 export default function StationComparison() {
   const navigate = useNavigate();
-  const [station1Id, setStation1Id] = useState<string>(mockEquipment[0].id);
-  const [station2Id, setStation2Id] = useState<string>(mockEquipment[1].id);
+  const allStationIds = lineConfig.stationOrder;
+  const [station1Id, setStation1Id] = useState<string>(allStationIds[0]);
+  const [station2Id, setStation2Id] = useState<string>(allStationIds[1]);
 
-  const station1 = mockEquipment.find(eq => eq.id === station1Id) || mockEquipment[0];
-  const station2 = mockEquipment.find(eq => eq.id === station2Id) || mockEquipment[1];
+  const station1 = mockStationStats[station1Id];
+  const station2 = mockStationStats[station2Id];
 
-  // Parameter selection state
-  const allParameterIds = station1.parameters.map(p => p.id);
-  const [selectedParameters, setSelectedParameters] = useState<string[]>(allParameterIds);
+  // Get shared parameter names
+  const params1 = Object.keys(station1.parameters);
+  const params2 = Object.keys(station2.parameters);
+  const allParamNames = [...new Set([...params1, ...params2])];
+  const [selectedParameters, setSelectedParameters] = useState<string[]>(allParamNames);
 
   const handleSelectAll = (checked: boolean) => {
-    setSelectedParameters(checked ? allParameterIds : []);
+    setSelectedParameters(checked ? allParamNames : []);
   };
 
-  const handleParameterToggle = (parameterId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedParameters(prev => [...prev, parameterId]);
-    } else {
-      setSelectedParameters(prev => prev.filter(id => id !== parameterId));
-    }
+  const handleParameterToggle = (name: string, checked: boolean) => {
+    if (checked) setSelectedParameters(prev => [...prev, name]);
+    else setSelectedParameters(prev => prev.filter(n => n !== name));
   };
 
-  const isAllSelected = selectedParameters.length === allParameterIds.length;
-  const filteredParameters = station1.parameters.filter(p => selectedParameters.includes(p.id));
+  const isAllSelected = selectedParameters.length === allParamNames.length;
+  const filteredParams = allParamNames.filter(n => selectedParameters.includes(n));
 
-  // Generate comparison chart data
+  const name1 = stationDisplayNames[station1Id] || station1Id;
+  const name2 = stationDisplayNames[station2Id] || station2Id;
+
+  // Compare means
   const comparisonChartOption = {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'axis',
       backgroundColor: 'hsl(var(--card))',
       borderColor: 'hsl(var(--border))',
-      textStyle: { color: 'hsl(var(--foreground))' }
+      textStyle: { color: 'hsl(var(--foreground))' },
     },
     legend: {
-      data: [station1.name, station2.name],
-      textStyle: { color: 'hsl(var(--foreground))' }
+      data: [name1, name2],
+      textStyle: { color: 'hsl(var(--foreground))' },
     },
     grid: { left: '3%', right: '4%', bottom: '3%', top: '15%', containLabel: true },
     xAxis: {
       type: 'category',
-      data: ['FPY (%)', 'Cycle Time (s)', 'Total Units', 'Anomaly Score'],
+      data: filteredParams,
       axisLine: { lineStyle: { color: 'hsl(var(--muted-foreground))' } },
-      axisLabel: { color: 'hsl(var(--muted-foreground))' }
+      axisLabel: { color: 'hsl(var(--muted-foreground))' },
     },
     yAxis: {
       type: 'value',
       axisLine: { lineStyle: { color: 'hsl(var(--muted-foreground))' } },
       axisLabel: { color: 'hsl(var(--muted-foreground))' },
-      splitLine: { lineStyle: { color: 'hsl(var(--border))', type: 'dashed' } }
+      splitLine: { lineStyle: { color: 'hsl(var(--border))', type: 'dashed' } },
     },
     series: [
       {
-        name: station1.name,
+        name: name1,
         type: 'bar',
-        data: [
-          station1.kpis.fpy,
-          station1.kpis.avgCycleTime,
-          station1.kpis.totalUnits,
-          station1.kpis.anomalyScore
-        ],
-        itemStyle: { color: 'hsl(var(--primary))' }
-      },
-      {
-        name: station2.name,
-        type: 'bar',
-        data: [
-          station2.kpis.fpy,
-          station2.kpis.avgCycleTime,
-          station2.kpis.totalUnits,
-          station2.kpis.anomalyScore
-        ],
-        itemStyle: { color: 'hsl(var(--status-good))' }
-      }
-    ]
-  };
-
-  // Time series comparison
-  const timeSeriesData = Array.from({ length: 24 }, (_, i) => ({
-    hour: `${i}:00`,
-    station1Fpy: 95 + Math.random() * 4,
-    station2Fpy: 93 + Math.random() * 5
-  }));
-
-  const timeSeriesOption = {
-    backgroundColor: 'transparent',
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: 'hsl(var(--card))',
-      borderColor: 'hsl(var(--border))',
-      textStyle: { color: 'hsl(var(--foreground))' }
-    },
-    legend: {
-      data: [station1.name, station2.name],
-      textStyle: { color: 'hsl(var(--foreground))' }
-    },
-    grid: { left: '3%', right: '4%', bottom: '3%', top: '15%', containLabel: true },
-    xAxis: {
-      type: 'category',
-      data: timeSeriesData.map(d => d.hour),
-      axisLine: { lineStyle: { color: 'hsl(var(--muted-foreground))' } },
-      axisLabel: { color: 'hsl(var(--muted-foreground))' }
-    },
-    yAxis: {
-      type: 'value',
-      name: 'FPY (%)',
-      axisLine: { lineStyle: { color: 'hsl(var(--muted-foreground))' } },
-      axisLabel: { color: 'hsl(var(--muted-foreground))' },
-      splitLine: { lineStyle: { color: 'hsl(var(--border))', type: 'dashed' } }
-    },
-    series: [
-      {
-        name: station1.name,
-        type: 'line',
-        data: timeSeriesData.map(d => d.station1Fpy),
+        data: filteredParams.map(n => station1.parameters[n]?.mean ?? 0),
         itemStyle: { color: 'hsl(var(--primary))' },
-        smooth: true,
-        lineStyle: { width: 2 }
       },
       {
-        name: station2.name,
-        type: 'line',
-        data: timeSeriesData.map(d => d.station2Fpy),
+        name: name2,
+        type: 'bar',
+        data: filteredParams.map(n => station2.parameters[n]?.mean ?? 0),
         itemStyle: { color: 'hsl(var(--status-good))' },
-        smooth: true,
-        lineStyle: { width: 2 }
-      }
-    ]
+      },
+    ],
   };
 
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="outline" onClick={() => navigate(-1)}>
@@ -158,280 +97,115 @@ export default function StationComparison() {
           <DateTimeRangeSelector />
         </div>
 
-        {/* Station Selectors */}
         <div className="grid grid-cols-2 gap-6">
           <Card className="bg-gradient-card border-border/50">
-            <CardHeader>
-              <CardTitle className="text-lg">Station 1</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="text-lg">Station 1</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <Select value={station1Id} onValueChange={setStation1Id}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {mockEquipment.map(eq => (
-                    <SelectItem key={eq.id} value={eq.id}>{eq.name}</SelectItem>
+                  {allStationIds.map(id => (
+                    <SelectItem key={id} value={id}>{stationDisplayNames[id] || id}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Badge 
-                variant="outline"
-                className={cn(
-                  "border-none w-fit",
-                  station1.status === 'excellent' ? 'bg-status-excellent' :
-                  station1.status === 'good' ? 'bg-status-good' :
-                  station1.status === 'warning' ? 'bg-status-warning' :
-                  station1.status === 'critical' ? 'bg-status-critical' : 'bg-status-offline',
-                  "text-primary-foreground"
-                )}
-              >
+              <Badge variant="outline" className={cn("border-none w-fit", `bg-${getStatusColor(station1.status)}`, "text-primary-foreground")}>
                 {station1.status.toUpperCase()}
               </Badge>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-card border-border/50">
-            <CardHeader>
-              <CardTitle className="text-lg">Station 2</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="text-lg">Station 2</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <Select value={station2Id} onValueChange={setStation2Id}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {mockEquipment.map(eq => (
-                    <SelectItem key={eq.id} value={eq.id}>{eq.name}</SelectItem>
+                  {allStationIds.map(id => (
+                    <SelectItem key={id} value={id}>{stationDisplayNames[id] || id}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Badge 
-                variant="outline"
-                className={cn(
-                  "border-none w-fit",
-                  station2.status === 'excellent' ? 'bg-status-excellent' :
-                  station2.status === 'good' ? 'bg-status-good' :
-                  station2.status === 'warning' ? 'bg-status-warning' :
-                  station2.status === 'critical' ? 'bg-status-critical' : 'bg-status-offline',
-                  "text-primary-foreground"
-                )}
-              >
+              <Badge variant="outline" className={cn("border-none w-fit", `bg-${getStatusColor(station2.status)}`, "text-primary-foreground")}>
                 {station2.status.toUpperCase()}
               </Badge>
             </CardContent>
           </Card>
         </div>
 
-        {/* KPI Comparison Grid */}
-        <div className="grid grid-cols-4 gap-4">
-          {/* Station 1 KPIs */}
-          <Card className="bg-gradient-card border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                {station1.name} - FPY
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {station1.kpis.fpy.toFixed(1)}%
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Cycle Time
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {station1.kpis.avgCycleTime.toFixed(1)}s
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Activity className="h-4 w-4" />
-                Total Units
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {station1.kpis.totalUnits.toLocaleString()}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
-                Anomaly
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {station1.kpis.anomalyScore.toFixed(0)}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Station 2 KPIs */}
-          <Card className="bg-gradient-card border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                {station2.name} - FPY
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {station2.kpis.fpy.toFixed(1)}%
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Cycle Time
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {station2.kpis.avgCycleTime.toFixed(1)}s
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Activity className="h-4 w-4" />
-                Total Units
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {station2.kpis.totalUnits.toLocaleString()}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
-                Anomaly
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {station2.kpis.anomalyScore.toFixed(0)}
-              </div>
-            </CardContent>
-          </Card>
+        {/* KPI Comparison */}
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { label: "Avg Cpk", icon: Gauge, val1: (() => { const c = Object.values(station1.parameters).filter(p => p.cpk != null).map(p => p.cpk!); return c.length ? (c.reduce((a,b)=>a+b,0)/c.length).toFixed(2) : "N/A"; })(), val2: (() => { const c = Object.values(station2.parameters).filter(p => p.cpk != null).map(p => p.cpk!); return c.length ? (c.reduce((a,b)=>a+b,0)/c.length).toFixed(2) : "N/A"; })() },
+            { label: "Parameters", icon: Activity, val1: Object.keys(station1.parameters).length, val2: Object.keys(station2.parameters).length },
+            { label: "Anomalies", icon: AlertTriangle, val1: Object.values(station1.parameters).reduce((s, p) => s + p.anomalyWindows.length, 0), val2: Object.values(station2.parameters).reduce((s, p) => s + p.anomalyWindows.length, 0) },
+          ].map(({ label, icon: Icon, val1, val2 }) => (
+            <Card key={label} className="bg-gradient-card border-border/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Icon className="h-4 w-4" />{label}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between">
+                  <div><div className="text-xs text-muted-foreground">{name1}</div><div className="text-xl font-bold">{val1}</div></div>
+                  <div className="text-right"><div className="text-xs text-muted-foreground">{name2}</div><div className="text-xl font-bold">{val2}</div></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
-        {/* Comparison Charts */}
-        <div className="grid grid-cols-1 gap-6">
-          <Card className="bg-gradient-card border-border/50">
-            <CardHeader>
-              <CardTitle>KPI Comparison (Non-Timely)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div style={{ height: 400 }}>
-                <ReactECharts option={comparisonChartOption} style={{ height: '100%' }} />
-              </div>
-            </CardContent>
-          </Card>
+        <Card className="bg-gradient-card border-border/50">
+          <CardHeader><CardTitle>Parameter Mean Comparison</CardTitle></CardHeader>
+          <CardContent>
+            <div style={{ height: 400 }}>
+              <ReactECharts option={comparisonChartOption} style={{ height: '100%' }} />
+            </div>
+          </CardContent>
+        </Card>
 
-          <Card className="bg-gradient-card border-border/50">
-            <CardHeader>
-              <CardTitle>Performance Over Time (Timely Comparison)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div style={{ height: 400 }}>
-                <ReactECharts option={timeSeriesOption} style={{ height: '100%' }} />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Parameter Selection and Comparison */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Parameter Selection */}
           <Card className="bg-gradient-card border-border/50">
-            <CardHeader>
-              <CardTitle>Select Parameters</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle>Select Parameters</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center space-x-2 pb-2 border-b border-border">
-                <Checkbox
-                  id="select-all"
-                  checked={isAllSelected}
-                  onCheckedChange={handleSelectAll}
-                />
-                <label
-                  htmlFor="select-all"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                >
-                  All Parameters
-                </label>
+                <Checkbox id="select-all" checked={isAllSelected} onCheckedChange={handleSelectAll} />
+                <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">All Parameters</label>
               </div>
-              {station1.parameters.map(param => (
-                <div key={param.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={param.id}
-                    checked={selectedParameters.includes(param.id)}
-                    onCheckedChange={(checked) => handleParameterToggle(param.id, checked as boolean)}
-                  />
-                  <label
-                    htmlFor={param.id}
-                    className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                  >
-                    {param.name}
-                  </label>
+              {allParamNames.map(name => (
+                <div key={name} className="flex items-center space-x-2">
+                  <Checkbox id={name} checked={selectedParameters.includes(name)} onCheckedChange={(c) => handleParameterToggle(name, c as boolean)} />
+                  <label htmlFor={name} className="text-sm cursor-pointer">{name}</label>
                 </div>
               ))}
             </CardContent>
           </Card>
 
-          {/* Parameter Comparison Table */}
           <Card className="bg-gradient-card border-border/50 lg:col-span-3">
-            <CardHeader>
-              <CardTitle>Parameter Comparison</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle>Parameter Comparison</CardTitle></CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border">
                       <th className="text-left p-3 text-sm font-medium text-muted-foreground">Parameter</th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">{station1.name}</th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">{station2.name}</th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">Difference</th>
+                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">{name1} (Mean ± σ)</th>
+                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">{name2} (Mean ± σ)</th>
+                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">Δ Mean</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredParameters.map((param, idx) => {
-                      const param2 = station2.parameters.find(p => p.name === param.name);
-                      const diff = param2 ? ((param.currentValue - param2.currentValue) / param2.currentValue * 100).toFixed(1) : 0;
+                    {filteredParams.map(name => {
+                      const p1 = station1.parameters[name];
+                      const p2 = station2.parameters[name];
+                      const diff = p1 && p2 ? ((p1.mean - p2.mean) / p2.mean * 100).toFixed(1) : "—";
                       return (
-                        <tr key={param.id} className="border-b border-border/50">
-                          <td className="p-3 text-sm">{param.name}</td>
-                          <td className="p-3 text-sm">{param.currentValue} {param.unit}</td>
-                          <td className="p-3 text-sm">{param2?.currentValue} {param2?.unit}</td>
-                          <td className="p-3 text-sm">
-                            <Badge variant="outline">{diff}%</Badge>
-                          </td>
+                        <tr key={name} className="border-b border-border/50">
+                          <td className="p-3 text-sm">{name}</td>
+                          <td className="p-3 text-sm">{p1 ? `${p1.mean.toFixed(2)} ± ${p1.stdDev.toFixed(2)}` : "—"}</td>
+                          <td className="p-3 text-sm">{p2 ? `${p2.mean.toFixed(2)} ± ${p2.stdDev.toFixed(2)}` : "—"}</td>
+                          <td className="p-3 text-sm"><Badge variant="outline">{diff}%</Badge></td>
                         </tr>
                       );
                     })}

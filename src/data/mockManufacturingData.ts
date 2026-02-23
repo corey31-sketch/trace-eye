@@ -1,218 +1,185 @@
-import { Equipment, FlowLink, ParallelEquipmentGroup } from "@/types/manufacturing";
+import { StationStats, LineConfig } from "@/types/manufacturing";
 
-// Mock data for demonstration - In FastHTML this would come from server/database
-export const mockEquipment: Equipment[] = [
-  {
-    id: "press-01",
-    name: "Press 01",
-    stationType: "press",
-    x: 100,
-    y: 200,
-    status: "excellent",
-    kpis: {
-      fpy: 98.5,
-      totalUnits: 1240,
-      avgCycleTime: 45.2,
-      anomalyScore: 12
-    },
-    parameters: [
-      {
-        id: "pressure",
-        name: "Hydraulic Pressure",
-        unit: "PSI",
-        currentValue: 2150,
-        targetValue: 2200,
-        upperLimit: 2400,
-        lowerLimit: 2000,
-        upperControlLimit: 2350,
-        lowerControlLimit: 2050,
-        trend: "stable",
-        status: "normal"
+// Hardcoded line configuration
+export const lineConfig: LineConfig = {
+  id: "line-01",
+  name: "Main Production Line",
+  stationOrder: ["OP10", "OP20A", "OP20B", "OP30", "OP40"],
+};
+
+// Helper to generate trace data
+const generateTrace = (mean: number, stdDev: number, count: number): { timestamp: string; value: number }[] => {
+  const now = Date.now();
+  return Array.from({ length: count }, (_, i) => ({
+    timestamp: new Date(now - (count - i) * 60000).toISOString(),
+    value: mean + (Math.random() - 0.5) * stdDev * 4,
+  }));
+};
+
+export const mockStationStats: Record<string, StationStats> = {
+  "OP10": {
+    stationId: "OP10",
+    status: "Stable",
+    parameters: {
+      "Hydraulic Pressure": {
+        mean: 2150, median: 2148, stdDev: 45, robustSigma: 40,
+        controlLimits: [2050, 2250], specLimits: [2000, 2400],
+        minVal: 2010, maxVal: 2310, count: 1240, outlierCount: 3,
+        status: "Stable", anomalyWindows: [],
+        trace: generateTrace(2150, 45, 50),
+        cpk: 1.85, driftSlope: 0.2, ttlHours: 480,
       },
-      {
-        id: "temperature",
-        name: "Oil Temperature",
-        unit: "°F",
-        currentValue: 185,
-        targetValue: 180,
-        upperLimit: 200,
-        lowerLimit: 160,
-        upperControlLimit: 195,
-        lowerControlLimit: 165,
-        trend: "increasing",
-        status: "warning"
-      }
-    ]
-  },
-  {
-    id: "weld-station-01",
-    name: "Weld Station 01",
-    stationType: "weld",
-    x: 400,
-    y: 180,
-    status: "good",
-    isParallel: true,
-    parallelGroupId: "weld-group-01",
-    kpis: {
-      fpy: 96.8,
-      totalUnits: 590,
-      avgCycleTime: 62.8,
-      anomalyScore: 28
+      "Oil Temperature": {
+        mean: 182, median: 181, stdDev: 6.5, robustSigma: 5.8,
+        controlLimits: [165, 195], specLimits: [160, 200],
+        minVal: 162, maxVal: 198, count: 1240, outlierCount: 8,
+        status: "Warning", 
+        anomalyWindows: [{
+          startTime: new Date(Date.now() - 3600000).toISOString(),
+          endTime: new Date(Date.now() - 1800000).toISOString(),
+          type: "DRIFT", severity: "MEDIUM",
+          details: "Gradual temperature increase detected",
+          durationMinutes: 30,
+        }],
+        trace: generateTrace(182, 6.5, 50),
+        cpk: 0.92, driftSlope: 1.5, ttlHours: 12,
+      },
     },
-    parameters: [
-      {
-        id: "current",
-        name: "Welding Current",
-        unit: "A",
-        currentValue: 185,
-        targetValue: 190,
-        upperLimit: 210,
-        lowerLimit: 170,
-        upperControlLimit: 205,
-        lowerControlLimit: 175,
-        trend: "stable",
-        status: "normal"
-      }
-    ]
+    correlationResults: [],
   },
-  {
-    id: "weld-station-02",
-    name: "Weld Station 02",
-    stationType: "weld",
-    x: 400,
-    y: 220,
-    status: "excellent",
-    isParallel: true,
-    parallelGroupId: "weld-group-01",
-    kpis: {
-      fpy: 97.2,
-      totalUnits: 590,
-      avgCycleTime: 60.1,
-      anomalyScore: 15
+  "OP20A": {
+    stationId: "OP20A",
+    status: "Stable",
+    parameters: {
+      "Welding Current": {
+        mean: 185, median: 186, stdDev: 7.2, robustSigma: 6.5,
+        controlLimits: [175, 205], specLimits: [170, 210],
+        minVal: 172, maxVal: 208, count: 590, outlierCount: 2,
+        status: "Stable", anomalyWindows: [],
+        trace: generateTrace(185, 7.2, 50),
+        cpk: 1.45,
+      },
+      "Wire Feed Rate": {
+        mean: 320, median: 318, stdDev: 12, robustSigma: 10,
+        controlLimits: [290, 350], specLimits: [280, 360],
+        minVal: 285, maxVal: 355, count: 590, outlierCount: 1,
+        status: "Stable", anomalyWindows: [],
+        trace: generateTrace(320, 12, 50),
+        cpk: 1.67,
+      },
     },
-    parameters: [
-      {
-        id: "current",
-        name: "Welding Current",
-        unit: "A",
-        currentValue: 192,
-        targetValue: 190,
-        upperLimit: 210,
-        lowerLimit: 170,
-        upperControlLimit: 205,
-        lowerControlLimit: 175,
-        trend: "stable",
-        status: "normal"
-      }
-    ]
+    correlationResults: [
+      { charA: "Welding Current", charB: "Wire Feed Rate", pearsonR: 0.72, strength: "STRONG", bothFailTogether: false },
+    ],
   },
-  {
-    id: "assembly-line",
-    name: "Assembly Line",
-    stationType: "assembly",
-    x: 700,
-    y: 200,
-    status: "warning",
-    kpis: {
-      fpy: 94.2,
-      totalUnits: 1150,
-      avgCycleTime: 78.5,
-      anomalyScore: 45
+  "OP20B": {
+    stationId: "OP20B",
+    status: "Stable",
+    parameters: {
+      "Welding Current": {
+        mean: 192, median: 191, stdDev: 6.8, robustSigma: 6.2,
+        controlLimits: [175, 205], specLimits: [170, 210],
+        minVal: 174, maxVal: 207, count: 590, outlierCount: 1,
+        status: "Stable", anomalyWindows: [],
+        trace: generateTrace(192, 6.8, 50),
+        cpk: 1.52,
+      },
+      "Wire Feed Rate": {
+        mean: 318, median: 317, stdDev: 11, robustSigma: 9.8,
+        controlLimits: [290, 350], specLimits: [280, 360],
+        minVal: 288, maxVal: 348, count: 590, outlierCount: 0,
+        status: "Stable", anomalyWindows: [],
+        trace: generateTrace(318, 11, 50),
+        cpk: 1.72,
+      },
     },
-    parameters: [
-      {
-        id: "speed",
-        name: "Line Speed",
-        unit: "ft/min",
-        currentValue: 12.5,
-        targetValue: 15.0,
-        upperLimit: 18.0,
-        lowerLimit: 10.0,
-        upperControlLimit: 17.0,
-        lowerControlLimit: 11.0,
-        trend: "decreasing",
-        status: "warning"
-      }
-    ]
+    correlationResults: [],
   },
-  {
-    id: "quality-check",
-    name: "Quality Check",
-    stationType: "inspection",
-    x: 1000,
-    y: 200,
-    status: "excellent",
-    kpis: {
-      fpy: 99.1,
-      totalUnits: 1140,
-      avgCycleTime: 35.0,
-      anomalyScore: 8
+  "OP30": {
+    stationId: "OP30",
+    status: "Warning",
+    parameters: {
+      "Line Speed": {
+        mean: 12.5, median: 12.3, stdDev: 1.8, robustSigma: 1.5,
+        controlLimits: [11, 17], specLimits: [10, 18],
+        minVal: 10.2, maxVal: 16.8, count: 1150, outlierCount: 12,
+        status: "Warning",
+        anomalyWindows: [{
+          startTime: new Date(Date.now() - 7200000).toISOString(),
+          endTime: new Date(Date.now() - 5400000).toISOString(),
+          type: "SPIKE", severity: "HIGH",
+          details: "Sudden line speed drop detected",
+          durationMinutes: 30,
+        }],
+        trace: generateTrace(12.5, 1.8, 50),
+        cpk: 0.78, driftSlope: -0.3, ttlHours: 8,
+      },
+      "Torque": {
+        mean: 45.2, median: 45.0, stdDev: 3.1, robustSigma: 2.8,
+        controlLimits: [38, 52], specLimits: [35, 55],
+        minVal: 36.1, maxVal: 53.5, count: 1150, outlierCount: 5,
+        status: "Stable", anomalyWindows: [],
+        trace: generateTrace(45.2, 3.1, 50),
+        cpk: 1.05,
+      },
     },
-    parameters: [
-      {
-        id: "accuracy",
-        name: "Measurement Accuracy",
-        unit: "μm",
-        currentValue: 2.1,
-        targetValue: 2.0,
-        upperLimit: 5.0,
-        lowerLimit: 0.5,
-        upperControlLimit: 4.0,
-        lowerControlLimit: 1.0,
-        trend: "stable",
-        status: "normal"
-      }
-    ]
-  }
-];
+    correlationResults: [],
+  },
+  "OP40": {
+    stationId: "OP40",
+    status: "Stable",
+    parameters: {
+      "Measurement Accuracy": {
+        mean: 2.1, median: 2.05, stdDev: 0.45, robustSigma: 0.38,
+        controlLimits: [1.0, 4.0], specLimits: [0.5, 5.0],
+        minVal: 0.8, maxVal: 4.2, count: 1140, outlierCount: 2,
+        status: "Stable", anomalyWindows: [],
+        trace: generateTrace(2.1, 0.45, 50),
+        cpk: 2.15,
+      },
+    },
+    correlationResults: [],
+  },
+};
 
-export const mockFlowLinks: FlowLink[] = [
-  {
-    id: "flow-1",
-    sourceId: "press-01",
-    targetId: "weld-group-01",
-    throughputCount: 85,
-    avgTransitionTime: 120,
-    status: "high",
-    isParallelFlow: true
-  },
-  {
-    id: "flow-2",
-    sourceId: "weld-group-01",
-    targetId: "assembly-line",
-    throughputCount: 78,
-    avgTransitionTime: 180,
-    status: "medium"
-  },
-  {
-    id: "flow-3",
-    sourceId: "assembly-line",
-    targetId: "quality-check",
-    throughputCount: 72,
-    avgTransitionTime: 90,
-    status: "medium"
-  }
-];
+// Helper: station display names
+export const stationDisplayNames: Record<string, string> = {
+  "OP10": "Press 01",
+  "OP20A": "Weld Station 01",
+  "OP20B": "Weld Station 02",
+  "OP30": "Assembly Line",
+  "OP40": "Quality Check",
+};
 
-export const mockParallelGroups: ParallelEquipmentGroup[] = [
-  {
-    id: "weld-group-01",
-    stationType: "weld",
-    name: "Welding Station Group",
-    equipment: mockEquipment.filter(eq => eq.parallelGroupId === "weld-group-01"),
-    combinedKpis: {
-      totalFpy: 97.0,
-      totalUnits: 1180,
-      avgCycleTime: 61.5,
-      maxAnomalyScore: 28
-    }
-  }
-];
+// Helper: which stations are parallel
+export const parallelGroups: Record<string, string[]> = {
+  "weld-group": ["OP20A", "OP20B"],
+};
 
-// Helper function to calculate overall metrics
-export const calculateOverallMetrics = (equipment: Equipment[], flowLinks: FlowLink[]) => ({
-  avgFPY: equipment.reduce((sum, eq) => sum + eq.kpis.fpy, 0) / equipment.length,
-  totalUnits: equipment.reduce((sum, eq) => sum + eq.kpis.totalUnits, 0),
-  totalThroughput: flowLinks.reduce((sum, link) => sum + link.throughputCount, 0),
-  criticalAlerts: equipment.filter(eq => eq.status === 'critical' || eq.status === 'warning').length
-});
+// Helper to get station status color
+export const getStatusColor = (status: string): string => {
+  const s = status.toLowerCase();
+  if (s === "stable") return "status-excellent";
+  if (s === "warning") return "status-warning";
+  if (s === "critical") return "status-critical";
+  if (s === "offline") return "status-offline";
+  return "status-good";
+};
+
+// Calculate overall metrics from station stats
+export const calculateOverallMetrics = (stations: StationStats[]) => {
+  const totalParams = stations.reduce((sum, s) => sum + Object.keys(s.parameters).length, 0);
+  const totalAnomalies = stations.reduce(
+    (sum, s) => sum + Object.values(s.parameters).reduce((a, p) => a + p.anomalyWindows.length, 0), 0
+  );
+  const totalOutliers = stations.reduce(
+    (sum, s) => sum + Object.values(s.parameters).reduce((a, p) => a + p.outlierCount, 0), 0
+  );
+  const avgCpk = stations.reduce((sum, s) => {
+    const cpks = Object.values(s.parameters).filter(p => p.cpk != null).map(p => p.cpk!);
+    return sum + (cpks.length > 0 ? cpks.reduce((a, b) => a + b, 0) / cpks.length : 0);
+  }, 0) / stations.length;
+  const warningStations = stations.filter(s => s.status.toLowerCase() !== "stable").length;
+
+  return { totalParams, totalAnomalies, totalOutliers, avgCpk, warningStations };
+};
