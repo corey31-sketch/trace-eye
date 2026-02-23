@@ -51,7 +51,6 @@ export const TimeRangeSelector = ({
 
   return (
     <div className={cn("flex items-center gap-4", className)}>
-      {/* Time Range Selector */}
       <div className="flex items-center gap-2">
         <Clock className="h-4 w-4 text-muted-foreground" />
         <Select 
@@ -70,21 +69,12 @@ export const TimeRangeSelector = ({
         </Select>
       </div>
 
-      {/* Current Filters Display */}
       <div className="flex items-center gap-2">
-        {productFilter && (
+        {productFilter?.program && (
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
             <Badge variant="secondary" className="flex items-center gap-1">
-              {productFilter.machineId && (
-                <span>Machine: {productFilter.machineId}</span>
-              )}
-              {productFilter.timeSlot && (
-                <span>
-                  {productFilter.machineId ? ' | ' : ''}
-                  Time: {productFilter.timeSlot.start.toLocaleTimeString()} - {productFilter.timeSlot.end.toLocaleTimeString()}
-                </span>
-              )}
+              <span>Program: {productFilter.program}</span>
               <Button
                 variant="ghost"
                 size="sm"
@@ -98,7 +88,6 @@ export const TimeRangeSelector = ({
         )}
       </div>
 
-      {/* Time Range Display */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>Viewing:</span>
         <Badge variant="outline" className="font-medium">

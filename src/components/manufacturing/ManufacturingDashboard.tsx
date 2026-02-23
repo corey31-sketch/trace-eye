@@ -1,46 +1,52 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Equipment, FlowLink, TimeRange, ProductFilter, ParallelEquipmentGroup } from "@/types/manufacturing";
+import { StationStats, TimeRange, ProductFilter } from "@/types/manufacturing";
 import { EquipmentCard } from "./EquipmentCard";
 import { ParallelEquipmentGroupCard } from "./ParallelEquipmentGroupCard";
 import { TimeRangeSelector } from "./TimeRangeSelector";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, Settings, RefreshCw, TrendingUp, AlertTriangle, GitBranch, ArrowRight } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { mockEquipment, mockFlowLinks, mockParallelGroups, calculateOverallMetrics } from "@/data/mockManufacturingData";
+import { BarChart3, Settings, RefreshCw, TrendingUp, AlertTriangle, GitBranch, ArrowRight, Gauge } from "lucide-react";
+import { mockStationStats, lineConfig, parallelGroups, calculateOverallMetrics, stationDisplayNames } from "@/data/mockManufacturingData";
 
 export const ManufacturingDashboard = () => {
   const navigate = useNavigate();
-  // In FastHTML, this data would come from server-side rendering
   const [timeRange, setTimeRange] = useState<TimeRange>({ type: 'realtime' });
   const [productFilter, setProductFilter] = useState<ProductFilter>();
-  
-  // Simplified - no client-side state updates or intervals
-  // In FastHTML, data refreshes would be handled with HTMX polling or websockets
-  const equipment = mockEquipment;
-  const parallelGroups = mockParallelGroups;
-  const flowLinks = mockFlowLinks;
 
-  const handleRefresh = () => {
-    // In FastHTML: window.location.reload() or HTMX hx-get
-    window.location.reload();
+  const stations = lineConfig.stationOrder.map(id => mockStationStats[id]).filter(Boolean);
+  const overallMetrics = calculateOverallMetrics(stations);
+
+  const handleRefresh = () => window.location.reload();
+
+  const handleStationClick = (stationId: string) => {
+    navigate(`/equipment/${stationId}`);
   };
 
-  const handleEquipmentClick = (equipment: Equipment) => {
-    navigate(`/equipment/${equipment.id}`);
-  };
+  // Build flow items: group parallel stations together
+  const buildFlowItems = (): { type: 'station' | 'group'; stationIds: string[]; groupName?: string }[] => {
+    const visited = new Set<string>();
+    const items: { type: 'station' | 'group'; stationIds: string[]; groupName?: string }[] = [];
 
-  const handleGroupClick = (group: ParallelEquipmentGroup) => {
-    // For groups, navigate to the first equipment's detail
-    if (group.equipment.length > 0) {
-      navigate(`/equipment/${group.equipment[0].id}`);
+    for (const stationId of lineConfig.stationOrder) {
+      if (visited.has(stationId)) continue;
+      
+      // Check if this station belongs to a parallel group
+      const groupEntry = Object.entries(parallelGroups).find(([, ids]) => ids.includes(stationId));
+      if (groupEntry) {
+        const [groupName, groupIds] = groupEntry;
+        groupIds.forEach(id => visited.add(id));
+        items.push({ type: 'group', stationIds: groupIds, groupName: "Welding Stations" });
+      } else {
+        visited.add(stationId);
+        items.push({ type: 'station', stationIds: [stationId] });
+      }
     }
+    return items;
   };
 
-  // Calculate overall metrics - in FastHTML this would be done server-side
-  const overallMetrics = calculateOverallMetrics(equipment, flowLinks);
+  const flowItems = buildFlowItems();
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -52,23 +58,15 @@ export const ManufacturingDashboard = () => {
               Manufacturing Operations Center
             </h1>
             <p className="text-muted-foreground">
-              Real-time monitoring and analytics for discrete manufacturing processes
+              Real-time monitoring and analytics — {lineConfig.name}
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleRefresh}
-            >
+            <Button variant="outline" size="sm" onClick={handleRefresh}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => navigate('/ml-decision-tree')}
-            >
+            <Button variant="outline" size="sm" onClick={() => navigate('/ml-decision-tree')}>
               <GitBranch className="h-4 w-4 mr-2" />
               ML Analysis
             </Button>
@@ -79,7 +77,6 @@ export const ManufacturingDashboard = () => {
           </div>
         </div>
 
-        {/* Time Range and Filters */}
         <TimeRangeSelector
           timeRange={timeRange}
           onTimeRangeChange={setTimeRange}
@@ -93,13 +90,13 @@ export const ManufacturingDashboard = () => {
         <Card className="bg-gradient-card border-border/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Overall FPY
+              <Gauge className="h-4 w-4" />
+              Avg Cpk
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {overallMetrics.avgFPY.toFixed(1)}%
+              {overallMetrics.avgCpk.toFixed(2)}
             </div>
           </CardContent>
         </Card>
@@ -108,12 +105,12 @@ export const ManufacturingDashboard = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
-              Total Units
+              Parameters
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {overallMetrics.totalUnits.toLocaleString()}
+              {overallMetrics.totalParams}
             </div>
           </CardContent>
         </Card>
@@ -122,12 +119,12 @@ export const ManufacturingDashboard = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Throughput
+              Outliers
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {overallMetrics.totalThroughput}/h
+              {overallMetrics.totalOutliers}
             </div>
           </CardContent>
         </Card>
@@ -142,12 +139,10 @@ export const ManufacturingDashboard = () => {
           <CardContent>
             <div className="flex items-center gap-2">
               <div className="text-2xl font-bold text-foreground">
-                {overallMetrics.criticalAlerts}
+                {overallMetrics.totalAnomalies}
               </div>
-              {overallMetrics.criticalAlerts > 0 && (
-                <Badge variant="destructive" className="text-xs">
-                  Active
-                </Badge>
+              {overallMetrics.totalAnomalies > 0 && (
+                <Badge variant="destructive" className="text-xs">Active</Badge>
               )}
             </div>
           </CardContent>
@@ -156,40 +151,26 @@ export const ManufacturingDashboard = () => {
 
       {/* Main Dashboard - Simple horizontal flow with arrows */}
       <div className="flex items-center gap-2 overflow-x-auto pb-4">
-        {(() => {
-          // Build ordered list: non-parallel equipment and groups in x-order
-          const standaloneEquipment = equipment.filter(eq => !eq.isParallel);
-          const items: { type: 'equipment' | 'group'; data: any; x: number }[] = [
-            ...standaloneEquipment.map(eq => ({ type: 'equipment' as const, data: eq, x: eq.x })),
-            ...parallelGroups.map(group => ({
-              type: 'group' as const,
-              data: group,
-              x: group.equipment.reduce((sum, eq) => sum + eq.x, 0) / group.equipment.length,
-            })),
-          ];
-          items.sort((a, b) => a.x - b.x);
-
-          return items.map((item, index) => (
-            <div key={item.type === 'equipment' ? item.data.id : item.data.id} className="flex items-center gap-2">
-              {item.type === 'equipment' ? (
-                <EquipmentCard
-                  equipment={item.data}
-                  onClick={() => handleEquipmentClick(item.data)}
-                />
-              ) : (
-                <ParallelEquipmentGroupCard
-                  group={item.data}
-                  onClick={() => handleGroupClick(item.data)}
-                />
-              )}
-              {index < items.length - 1 && (
-                <ArrowRight className="h-8 w-8 text-muted-foreground flex-shrink-0" />
-              )}
-            </div>
-          ));
-        })()}
+        {flowItems.map((item, index) => (
+          <div key={item.stationIds.join('-')} className="flex items-center gap-2">
+            {item.type === 'station' ? (
+              <EquipmentCard
+                station={mockStationStats[item.stationIds[0]]}
+                onClick={() => handleStationClick(item.stationIds[0])}
+              />
+            ) : (
+              <ParallelEquipmentGroupCard
+                groupName={item.groupName || "Parallel Group"}
+                stations={item.stationIds.map(id => mockStationStats[id])}
+                onClick={() => handleStationClick(item.stationIds[0])}
+              />
+            )}
+            {index < flowItems.length - 1 && (
+              <ArrowRight className="h-8 w-8 text-muted-foreground flex-shrink-0" />
+            )}
+          </div>
+        ))}
       </div>
-
     </div>
   );
 };
